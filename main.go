@@ -19,21 +19,28 @@ func main() {
 
 	err = conduit.Create("users")
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
-	user := User{
-		Username: "root",
-		Password: "toor",
-	}
-	err = conduit.From("users").Insert(user)
-	if err != nil {
-		panic(err)
-	}
+	// user := User{
+	// 	Username: "root",
+	// 	Password: "toor",
+	// }
+	// err = conduit.From("users").Insert(user)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	results, err := conduit.From("users").Where(func(entry any) bool { return true }).Execute()
+	results, err := conduit.From("users").Where(func(entry Entry) bool {
+		return entry["username"] == "root"
+	})
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(results)
+
+	view := results.Select("username")
+	for i, row := range view.List() {
+		fmt.Println(i, row)
+	}
 }

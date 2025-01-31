@@ -10,17 +10,43 @@ import (
 type Statement struct {
 	store  *Conduit
 	bucket string
-	where  func(entry any) bool
+	where  func(entry Entry) bool
 }
+
+type Entry map[string]any
 
 type Conduit struct {
 	db *bolt.DB
 }
 
 type View struct {
+	results []Entry
 }
 
-// tolist
+func (v *View) List() []Entry {
+	return v.results
+}
+
+func (v *View) Select(columns ...string) *View {
+	var newResults []Entry
+
+	for _, result := range v.results {
+		newResult := make(Entry)
+		for key, value := range result {
+			for _, column := range columns {
+				if key == column {
+					newResult[key] = value
+					break
+				}
+			}
+		}
+
+		newResults = append(newResults, newResult)
+	}
+
+	v.results = newResults
+	return v
+}
 
 // as
 
@@ -47,9 +73,35 @@ func (store *Conduit) From(bucket string) *Statement {
 	return s
 }
 
-func (s *Statement) Where(where func(entry any) bool) *Statement {
+func (s *Statement) Where(where func(entry Entry) bool) (view View, err error) {
 	s.where = where
-	return s
+
+	// create the view for the db
+	err = s.store.db.View(func(tx *bolt.Tx) error {
+		// open the bucket using its name
+		bucket := tx.Bucket([]byte(s.bucket))
+
+		// for every row
+		bucket.ForEach(func(k, v []byte) error {
+			// convert the byte array into an entry
+			var entry Entry
+			err := json.Unmarshal(v, &entry)
+			if err != nil {
+				return err
+			}
+
+			// if the entry matches the where condition specified by the user
+			if s.where(entry) {
+				// append to the results
+				view.results = append(view.results, entry)
+			}
+
+			return nil
+		})
+		return nil
+	})
+
+	return
 }
 
 func (s *Statement) Insert(object any) error {
@@ -101,33 +153,4 @@ func (s *Statement) Update(pk uint64, object any) (err error) {
 	}
 
 	return err
-}
-
-func (s *Statement) Execute() (results []any, err error) {
-	// create the view for the db
-	err = s.store.db.View(func(tx *bolt.Tx) error {
-		// open the bucket using its name
-		bucket := tx.Bucket([]byte(s.bucket))
-
-		// for every row
-		bucket.ForEach(func(k, v []byte) error {
-			// convert the byte array into an entry
-			var entry any
-			err := json.Unmarshal(v, &entry)
-			if err != nil {
-				return err
-			}
-
-			// if the entry matches the where condition specified by the user
-			if s.where(entry) {
-				// append to the results
-				results = append(results, entry)
-			}
-
-			return nil
-		})
-		return nil
-	})
-
-	return
 }
