@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 
 	"github.com/boltdb/bolt"
 )
@@ -20,6 +21,7 @@ type Conduit struct {
 }
 
 type View struct {
+	columns []string
 	results []Entry
 }
 
@@ -28,6 +30,7 @@ func (v *View) List() []Entry {
 }
 
 func (v *View) Select(columns ...string) *View {
+	v.columns = columns
 	var newResults []Entry
 
 	for _, result := range v.results {
@@ -46,6 +49,25 @@ func (v *View) Select(columns ...string) *View {
 
 	v.results = newResults
 	return v
+}
+
+func (v *View) Display() (content string) {
+	content += "\t"
+	for _, column := range v.columns {
+		content += column + "\t"
+	}
+	content += "\n"
+
+	for i, row := range v.results {
+		line := fmt.Sprintf("%d\t", i)
+		for _, d := range row {
+			line += fmt.Sprintf("%v\t", d)
+		}
+		line += "\n"
+		content += line
+	}
+
+	return
 }
 
 // as

@@ -40,7 +40,5 @@ func main() {
 	fmt.Println(results)
 
 	view := results.Select("username")
-	for i, row := range view.List() {
-		fmt.Println(i, row)
-	}
+	fmt.Println(view.Display())
 }
